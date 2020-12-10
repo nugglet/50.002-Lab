@@ -1,0 +1,159 @@
+.include beta.uasm
+.include lab6checkoff.uasm
+
+count_bull_cows:
+	| subroutine entry sequence
+	PUSH(LP)
+	PUSH(BP)
+	MOVE(SP,BP)
+
+	| registers
+	PUSH(R1) |int bulls
+	PUSH(R2) |int cows
+	PUSH(R3) | A
+	PUSH(R4) | B
+
+	| temp vars
+	PUSH(R5) | i
+	PUSH(R6) | j
+	PUSH(R7) |btemp
+	PUSH(R8) |atry
+	PUSH(R9) |btry
+	PUSH(R10) |mask
+	PUSH(R11) |final bulls
+
+	| Load input variables
+	LD(BP, -12 R3) | Load A into R3
+	LD(BP, -16, R4) | Load B into R4
+
+	| instantiate variables
+	CMOVE(0xF, R10) | mask = 0xF
+	CMOVE(0x0, R1) | bulls = 0 
+
+	|main loop, result in R0
+	CMOVE(0, R5) | initialise loop counter i=0
+	BR(count_bulls_check) | start loop by checking if i < 4
+
+|count bulls, check each of the 4 bit digits in turn
+|for (i=0; i<4; i++)
+count_bulls: 
+
+	| if ((a&mask) == (b&mask))
+	AND(R3, R10, R21) | A ^ MASK
+	AND(R4, R10, R22) | B ^ MASK
+	CMPEQ(R22, R21, R0) | if (A^MASK)==(B^MASK), R0 = 1
+
+	BT(R0, bulls_if) | Branch to if loop if true
+
+	ADDC(R5, 1, R5) | i++
+	SHLC(R10, 4, R10) | MASK << 4
+	BF(R0, count_bulls_check) | Branch to for_one_check if false
+		
+
+bulls_if: |If true
+	ADDC(R1, 1, R1) | BULLS +=1
+	OR(R3, R10, R3) | A = A|MASK
+	OR(R4, R10, R4) | B = B|MASK
+
+	ADDC(R5, 1, R5) | i++
+	SHLC(R10, 4, R10) | MASK = MASK << 4
+	BR(count_bulls_check)
+
+	
+count_bulls_check:
+	| checks if i < 4
+	CMPLTC(R5, 4, R0) | if i < 4, R0 = 1
+	BT(R0, count_bulls) |if i < 4, continue the loop
+	
+	|if i >= 4, go to next for loop
+	CMOVE(0, R5) | reset i to 0
+	CMOVE(0, R6) | j = 0
+	CMOVE(0, R2) | cows = 0
+	BR(count_cows) |jump to second loop
+
+|count cows
+count_cows:
+	
+	ANDC(R3, 0XF, R8) |atry = a & 0XF
+	SHRC(R3, 4, R3) | A >> 4
+
+	CMPEQC(R8, 0XF, R0) | if atry is a bull, R0 = 1
+	BF(R0, cows_if_one) | if atry != 0Xf, go to if loop
+
+	| if false,
+	ADDC(R5, 1, R5) | i++
+	BT(R0, count_cows_check)
+
+count_cows_check:
+	CMPLTC(R5, 4, R0) | check i < 4
+	BT(R0, count_cows)
+
+	|if false, exit loop and return (bulls <<4) + cows
+	BF(R0, return_condition)
+
+
+cows_if_one: | if atry != 0XF
+	MOVE(R4, R7) | btemp = b
+	CMOVE(0XF, R10) | MASK = 0XF
+	CMOVE(0, R6) | j = 0, loop counter for nested for loop
+	BR(nested_for)
+
+nested_for:
+	ANDC(R7, 0XF, R9)
+	SHRC(R7, 4, R7) |BTEMP >> 4
+	CMPEQ(R8, R9, R0) | if (atry == btry)
+
+	BT(R0, cows_if_two) | if (atry == btry), enter if loop
+
+	ADDC(R6, 1, R6) |j++
+	SHLC(R10, 4, R10) | MASK << 4
+	BF(R0, nested_for_check)
+
+
+cows_if_two:
+	ADDC(R2, 1, R2) | cows += 1
+	OR(R4, R10, R4) | B|MASK
+
+	|break, go to next iteration in main loop
+	ADDC(R5, 1, R5) | i++
+	BR(count_cows_check)
+
+nested_for_check:
+	CMPLTC(R6, 4, R0) | check j < 4
+	BT(R0, nested_for)
+
+	| if j >= 4, exit nested for loop, back to main for loop
+	ADDC(R5, 1, R5) | i++
+	BR(count_cows_check)
+
+
+return_condition:
+	|return (bulls<<4) + cows
+	SHLC(R1, 4, R11)
+	ADD(R11, R2, R0)
+	BR(exit_sequence)
+
+	
+exit_sequence:
+	| pop  registers
+	POP(R11)
+	POP(R10)
+	POP(R9)
+	POP(R8)
+	POP(R7)
+	POP(R6)
+	POP(R5)
+	POP(R4)
+	POP(R3)
+	POP(R2)
+	POP(R1)
+
+	| subroutine exit sequence
+	MOVE(BP, SP)
+	POP(BP)
+	POP(LP)
+	RTN()
+
+
+StackBase: LONG(.+4) | Pointer to bottom of stack
+. = .+0x1000 | Reserve space for stack

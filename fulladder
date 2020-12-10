@@ -1,0 +1,64 @@
+.include "8clocks.jsim"
+.include "nominal.jsim"
+.include "lab2checkoff.jsim"
+
+// Inverter (from Lab 1)
+.subckt inv a z
+MPD1 z a 0 0 NENH sw=16 sl=1
+MPU1 z a vdd vdd PENH sw=16 sl=1
+.ends
+
+.subckt xor2 a b z
+MPD1 z a i1 0 NENH sw=8 sl=1 //drain, gate(input), source, bulk
+XinvB b inv_b inv //creates instance of a custom circuit, input, output
+MPD2 z inv_b i1 0 NENH sw=8 sl=1
+MPD3 i1 b 0 0 NENH sw=8 sl=1
+XinvA a inv_a inv
+MPD4 i1 inv_a 0 0 NENH sw=8 sl=1
+
+MPU1 i2 a vdd vdd PENH sw=10 sl=1
+XinvC b inv_b inv
+MPU2 z inv_b i2 vdd PENH sw=10 sl=1
+MPU3 i3 b vdd vdd PENH sw=10 sl=1
+XinvD a inv_a inv
+MPU4 z inv_a i3 vdd PENH sw=10 sl=1
+.ends
+
+.subckt nand2 a b z //needs to be inverted at instantiation
+MPD1 z a i1 0 NENH sw=8 sl=1
+MPD2 i1 b 0 0 NENH sw=8 sl=1
+
+MPU1 z a vdd vdd PENH sw=8 sl=1
+MPU2 z b vdd vdd PENH sw=8 sl=1
+.ends
+
+.subckt or2 a b z
+MPD1 2 a 0 0 NENH sw=8 sl=1
+MPD2 2 b 0 0 NENH sw=8 sl=1
+
+MPU1 i1 a vdd vdd PENH sw=10 sl=1
+MPU2 2 b i1 vdd PENH sw=10 sl=1
+
+Xinvor 2 z inv
+.ends
+
+//contsructing full adder
+.subckt FA A B Cin S Cout
+Xg01 A B o1 xor2
+Xg02 o1 Cin S xor2
+Xg03 Cin o1 o2 nand2
+Xg04 A B o3 nand2
+XinvA o2 inv_a inv
+XinvB o3 inv_b inv
+Xg05 inv_a inv_b Cout or2
+.ends
+
+.subckt ADDER4 a3 a2 a1 a0 b3 b2 b1 b0 s4 s3 s2 s1 s0
+Xbit0 a0 b0 0 s0 c0 FA
+Xbit1 a1 b1 c0 s1 c1 FA
+Xbit2 a2 b2 c1 s2 c2 FA
+Xbit3 a3 b3 c2 s3 s4 FA
+.ends
+
+.plot Xtest.c0
+

@@ -1,0 +1,81 @@
+.include "nominal.jsim"
+.include "stdcell.jsim"
+*.include "lab3adder.jsim"
+*.include "lab3boolean.jsim"
+*.include "lab3compare.jsim"
+*.include "lab3shifter.jsim"
+*.include "lab3checkoff_6.jsim"
+*.include "lab3checkoff_10.jsim"
+
+//1 bit full adder (from Lab 2)
+.subckt FA A B Cin S Cout
+Xg01 A B o1 xor2
+Xg02 o1 Cin S xor2
+Xg03 Cin o1 o2 and2
+Xg04 A B o3 and2
+Xg05 o2 o3 Cout or2
+.ends
+
+//Boolean unit
+.subckt boole32 ALUFN[3:0] A[31:0] B[31:0] boole[31:0]
+Xmux A[31:0] B[31:0] ALUFN0#32 ALUFN1#32 ALUFN2#32 ALUFN3#32 boole[31:0] mux4
+.ends
+
+//compare unit
+.subckt compare32 ALUFN[2:1] z v n cmp[31:0]
+.connect cmp[31:1] 0
+
+Xxornv v n vxorn xor2
+Xorz vxorn z orz or2
+Xmux ALUFN2 ALUFN1 0 vxorn z orz cmp0 mux4
+.ends
+
+//adder32
+.subckt adder32 ALUFN[0] A[31:0] B[31:0] s[31:0] z v n
+
+Xxor B[31:0] ALUFN[0]#32 xb[31:0] xor2
+Xadder1 A[0] xb[0] ALUFN[0] s[0] C[0] FA
+Xadder2 A[31:1] xb[31:1] C[30:0] s[31:1] C[31:1] FA
+
+*z
+Xor1 s[15:0] s[31:16] ro1[15:0] or2
+Xor2 ro1[7:0] ro1[15:8] ro2[7:0] or2
+Xor3 ro2[3:0] ro2[7:4] ro3[3:0] or2
+Xor4 ro3[1:0] ro3[3:2] ro4[1:0] or2
+Xnor1 ro4[0] ro4[1] z nor2
+
+*v & n
+Xinv1 A[31] ai inverter
+Xinv2 xb[31] bi inverter
+Xinv3 s[31] si inverter
+
+X1 A[31] xb[31] si x and3
+X2 ai bi s[31] y and3
+X3 x y v or2
+
+.connect s[31] n
+.ends
+
+//shifter
+.subckt shift32 ALUFN[1:0] A[31:0] B[4:0] shift[31:0]
+Xmux1 ALUFN0#32 A[31:0] A[0:31] mo1[31:0] mux2
+Xmux2 ALUFN[1] 0 A[31] mo2 mux2
+
+Xs1 B[4]#32 mo1[31:0] mo1[15:0] mo2#16 so1[31:0] mux2
+Xs2 B[3]#32 so1[31:0] so1[23:0] mo2#8 so2[31:0] mux2
+Xs3 B[2]#32 so2[31:0] so2[27:0] mo2#4 so3[31:0] mux2
+Xs4 B[1]#32 so3[31:0] so3[29:0] mo2#2 so4[31:0] mux2
+Xs5 B[0]#32 so4[31:0] so4[30:0] mo2 so5[31:0] mux2
+
+Xshiftmux ALUFN0#32 so5[31:0] so5[0:31] shift[31:0] mux2
+.ends
+
+// ALU
+.subckt alu ALUFN[5:0] A[31:0] B[31:0] alu[31:0] z v n
+Xadd ALUFN0 A[31:0] B[31:0] o1[31:0] z v n  adder32
+Xboole ALUFN[3:0] A[31:0] B[31:0] o2[31:0] boole32
+Xshift ALUFN[1:0] A[31:0] B[4:0]  o3[31:0] shift32
+Xcmp ALUFN[2:1] z v n o4[31:0] compare32
+Xmux ALUFN[4]#32 ALUFN[5]#32 o1[31:0] o2[31:0] o3[31:0] o4[31:0] alu[31:0] mux4
+.ends 
+
